@@ -1,0 +1,86 @@
+#!/bin/bash
+# ********************************************************************
+# Ericsson Radio Systems AB                                     SCRIPT
+# ********************************************************************
+#
+#
+# (c) Ericsson Radio Systems AB 2018 - All rights reserved.
+#
+# The copyright to the computer program(s) herein is the property
+# of Ericsson Radio Systems AB, Sweden. The programs may be used 
+# and/or copied only with the written permission from Ericsson Radio 
+# Systems AB or in accordance with the terms and conditions stipulated 
+# in the agreement/contract under which the program(s) have been 
+# supplied.
+#
+# ********************************************************************
+# Name    : add_service_users
+# Date    : 13/07/2020(dummy date) Last modified 25/04/2023
+# Purpose : Script to add service users
+# Usage   : add_service_users
+# ********************************************************************
+
+ECHO=/usr/bin/echo
+LS=/usr/bin/ls
+
+if [ -z "${CONF_DIR}" ] ; then
+	$ECHO "ERROR: CONF_DIR is not set"
+	exit 1
+fi
+
+if [ ! -r "${CONF_DIR}/niq.rc" ] ; then
+	$ECHO "ERROR: Source file is not readable at ${CONF_DIR}/niq.rc"
+	exit 1
+fi
+
+. ${CONF_DIR}/niq.rc
+
+_platform_dirs_=$($LS ${PLATFORM_DIR})
+
+_classpath_="${INSTALLER_DIR}/lib/installer.jar"
+
+JAVA_HOME=${RT_DIR}/java
+export JAVA_HOME
+
+for _module_ in $_platform_dirs_ ; do
+	_dclib_="${PLATFORM_DIR}/$_module_/dclib"
+	if [ -d $_dclib_ ] ; then
+		_jars_=$($LS $_dclib_/*.jar)
+		for _jar_ in $_jars_ ; do
+			_classpath_="${_classpath_}:${_jar_}"
+		done
+	fi
+done
+
+_args_=$*
+if [ $# == 0 ] ; then
+	_args_="-all"
+fi
+check_strongPassphraseFile(){
+if [ -f /eniq/installation/config/strong_passphrase ]; then
+                if [ -s /eniq/installation/config/strong_passphrase ]; then
+                                        pass_phrase=`cat /eniq/sw/conf/strong_passphrase`
+                                else
+                echo "Passphrase file is empty.Hence aborting."
+                exit 1
+        fi
+ else
+                if [ -f "/eniq/sw/conf/strong_passphrase" ]; then
+                                if [ -s "/eniq/sw/conf/strong_passphrase" ]; then
+                                        pass_phrase=`cat /eniq/sw/conf/strong_passphrase`
+                                else
+                                                                echo "Passphrase file is empty.Hence aborting."
+                                                                exit 1
+                                        fi
+                else
+                echo "Passphrase file does not exist.Hence aborting"
+                exit 1
+fi
+fi
+}
+ check_strongPassphraseFile
+echo "in add service user ${_args_}"
+${RT_DIR}/jdk/bin/java -d64 -Dpname="AddServiceUsers" \
+	-DCONF_DIR=${CONF_DIR} -classpath ${_classpath_} \
+	com.ericsson.eniq.repository.dbusers.AddServiceUser $_args_
+exit $?
